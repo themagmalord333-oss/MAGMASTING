@@ -18,8 +18,8 @@ BOT_TOKEN = "8319710991:AAEQMtAC0t_r3lwyg7sGXWH18CXsExQ3jF8"
 
 # Force Subscribe Channels
 FORCE_CHANNELS = [
-    {"title": "First Channel", "id": -1003667411246, "url": "https://t.me/+6vSQdz-c8sY1N2U1"},
-    {"title": "Second Channel", "id": -1003723454931, "url": "https://t.me/+JupuFk5y8rM4NDcx"}
+    {"title": "First Channel", "id": -1003892920891, "url": "https://t.me/+Om1HMs2QTHk1N2Zh"},
+    {"title": "Second Channel", "id": -1003387459132, "url": "https://t.me/+wZ9rDQC5fkYxOWJh"}
 ]
 
 SESSION_NAME = "magma_force_v8"
