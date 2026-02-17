@@ -1,4 +1,17 @@
+# ---------------------------------------------------------
+# 🚑 CRITICAL FIX FOR PYTHON 3.10+ / 3.14
+# Yeh hissa sabse upar hona chahiye, imports se bhi pehle
+# ---------------------------------------------------------
 import asyncio
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+# ---------------------------------------------------------
+# IMPORTS
+# ---------------------------------------------------------
 from pyrogram import Client, filters, idle
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.errors import UserNotParticipant, SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
@@ -27,7 +40,7 @@ SESSION_NAME = "magma_force_v8"
 user_sessions = {}
 
 # ---------------------------------------------------------
-# 🌐 FLASK WEB SERVER (Render Fix)
+# 🌐 FLASK WEB SERVER
 # ---------------------------------------------------------
 flask_app = Flask(__name__)
 
@@ -60,7 +73,6 @@ app = Client(
 # ---------------------------------------------------------
 
 async def get_force_sub_buttons(client, user_id):
-    """Check membership and return buttons if not joined"""
     buttons = []
     not_joined = False
 
@@ -167,15 +179,13 @@ async def cancel_session(client, message):
         await message.reply("⚠️ No active session to cancel.")
 
 # ---------------------------------------------------------
-# 📨 MESSAGE HANDLER (CORE LOGIC)
+# 📨 MESSAGE HANDLER
 # ---------------------------------------------------------
 
 @app.on_message(filters.text & filters.private)
 async def handle_text(client, message):
     user_id = message.from_user.id
-
-    if user_id not in user_sessions:
-        return
+    if user_id not in user_sessions: return
 
     if time.time() - user_sessions[user_id]["timestamp"] > 600:
         if user_sessions[user_id].get("client"):
@@ -192,36 +202,19 @@ async def handle_text(client, message):
         await cancel_session(client, message)
         return
 
-    # --- STEP 1: PHONE NUMBER ---
     if step == "phone":
         if not text.startswith("+") or len(text) < 10:
             await message.reply("❌ **Invalid!** Example: `+919876543210`")
             return
-
         user_sessions[user_id]["phone"] = text
         user_sessions[user_id]["step"] = "otp"
-
         try:
-            # Create a temporary client in memory
-            # Note: We use the same API ID/HASH
-            temp_client = Client(
-                f"mem_{user_id}_{time.time()}", 
-                api_id=API_ID, 
-                api_hash=API_HASH, 
-                in_memory=True
-            )
+            temp_client = Client(f"mem_{user_id}_{time.time()}", api_id=API_ID, api_hash=API_HASH, in_memory=True)
             await temp_client.connect()
-
             sent_code = await temp_client.send_code(text)
             user_sessions[user_id]["client"] = temp_client
             user_sessions[user_id]["hash"] = sent_code.phone_code_hash
-
-            await message.reply(
-                "✅ **OTP Sent!**\n\n"
-                "🔢 Please send the OTP with spaces:\n"
-                "**Example:** `1 2 3 4 5`\n\n"
-                "⚠️ If you have 2FA enabled, you will be asked for password next."
-            )
+            await message.reply("✅ **OTP Sent!**\n\nEnter OTP with spaces:\n`1 2 3 4 5`")
         except Exception as e:
             await message.reply(f"❌ Error: {e}\nTry again with /get")
             if user_sessions[user_id].get("client"):
@@ -229,32 +222,24 @@ async def handle_text(client, message):
                 except: pass
             del user_sessions[user_id]
 
-    # --- STEP 2: OTP ---
     elif step == "otp":
         otp = text.replace(" ", "")
         try:
             tc = user_sessions[user_id]["client"]
             ph = user_sessions[user_id]["phone"]
             ch = user_sessions[user_id]["hash"]
-
             try:
                 await tc.sign_in(ph, ch, phone_code=otp)
             except SessionPasswordNeeded:
                 user_sessions[user_id]["step"] = "2fa"
-                await message.reply("🔐 **2FA Detected!**\nPlease send your 2FA Password.")
-                return
-            except (PhoneCodeInvalid, PhoneCodeExpired):
-                await message.reply("❌ **Invalid or Expired OTP!**\n/cancel and try again.")
+                await message.reply("🔐 **2FA Detected!**\nEnter Password.")
                 return
             except Exception as e:
                 raise e
-
             await send_session_data(client, message, tc, ph)
-
         except Exception as e:
             await message.reply(f"❌ OTP Error: {e}")
 
-    # --- STEP 3: 2FA ---
     elif step == "2fa":
         try:
             tc = user_sessions[user_id]["client"]
@@ -262,35 +247,18 @@ async def handle_text(client, message):
             await tc.check_password(text)
             await send_session_data(client, message, tc, ph)
         except Exception as e:
-            await message.reply(f"❌ Password Error: {e}\nTry again.")
+            await message.reply(f"❌ Password Error: {e}")
 
 async def send_session_data(bot, message, temp_client, phone):
     try:
         session_string = await get_session_string(temp_client)
         user_info = await temp_client.get_me()
         user_id = message.from_user.id
-        name = (user_info.first_name or "")
-
-        text_header = (
-            f"🎉 **SESSION GENERATED!**\n\n"
-            f"👤 **User:** {name}\n"
-            f"📱 **Phone:** `{phone}`\n"
-            f"🆔 **ID:** `{user_info.id}`\n\n"
-            f"📋 **YOUR SESSION STRING:**"
-        )
-
-        if len(session_string) > 3500:
-            await message.reply(text_header + "\n(Sending in parts...)")
-            parts = [session_string[i:i+3500] for i in range(0, len(session_string), 3500)]
-            for part in parts: await message.reply(f"`{part}`")
-        else:
-            await message.reply(f"{text_header}\n\n`{session_string}`")
-
-        try:
-            await temp_client.send_message("me", f"📱 **Session**\nPhone: {phone}\n\n`{session_string}`")
-            await message.reply("✅ Also sent to Saved Messages!")
+        name = user_info.first_name or ""
+        text = f"🎉 **SESSION GENERATED!**\n👤 {name}\n📱 `{phone}`\n\n`{session_string}`"
+        await message.reply(text)
+        try: await temp_client.send_message("me", text)
         except: pass
-
     except Exception as e:
         await message.reply(f"❌ Error: {e}")
     finally:
@@ -298,25 +266,10 @@ async def send_session_data(bot, message, temp_client, phone):
         if user_id in user_sessions: del user_sessions[user_id]
 
 # ---------------------------------------------------------
-# 🚀 MAIN EXECUTION (ULTIMATE FIX)
+# 🚀 MAIN EXECUTION
 # ---------------------------------------------------------
 
 if __name__ == "__main__":
     print("🚀 Session Bot Starting...")
-
-    # Start Flask in separate thread
-    keep_alive()
-    print("🌐 Flask Server Started!")
-
-    # ⚠️ CRITICAL FIX FOR RENDER / PYTHON 3.10+
-    # Manually create and set the event loop before Pyrogram touches it.
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    print("✅ Event Loop Configured!")
-
-    # Start Pyrogram Bot using the manual loop
+    keep_alive() # Flask Server
     app.run()
