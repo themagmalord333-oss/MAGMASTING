@@ -1,4 +1,4 @@
-# ---------------------------------------------------------
+#---------------------------------------------------------
 # 🚑 CRITICAL FIX FOR PYTHON 3.10+ / 3.14
 # Yeh hissa sabse upar hona chahiye, imports se bhi pehle
 # ---------------------------------------------------------
@@ -26,7 +26,7 @@ from threading import Thread
 # ---------------------------------------------------------
 API_ID = 37314366
 API_HASH = "bd4c934697e7e91942ac911a5a287b46"
-BOT_TOKEN = "8321333186:AAEWHHj7OpeS8lARdm1vNjcWOd2ilrc2vWE"
+BOT_TOKEN = "8319710991:AAGjPDlurUUIhEkenfkymicf8WL5H6L4f4k"
 
 # Force Subscribe Channels
 FORCE_CHANNELS = [
