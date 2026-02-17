@@ -212,7 +212,7 @@ async def handle_text(client, message):
                 in_memory=True
             )
             await temp_client.connect()
-            
+
             sent_code = await temp_client.send_code(text)
             user_sessions[user_id]["client"] = temp_client
             user_sessions[user_id]["hash"] = sent_code.phone_code_hash
@@ -299,32 +299,16 @@ async def send_session_data(bot, message, temp_client, phone):
         if user_id in user_sessions: del user_sessions[user_id]
 
 # ---------------------------------------------------------
-# 🚀 MAIN EXECUTION
+# 🚀 MAIN EXECUTION (FIXED)
 # ---------------------------------------------------------
 
-async def main():
+if __name__ == "__main__":
     print("🚀 Session Bot Starting...")
-    
-    # Start Flask in separate thread
+
+    # Start Flask Server for Render Keep-Alive
     keep_alive()
     print("🌐 Flask Server Started!")
 
     # Start Pyrogram Bot
-    try:
-        await app.start()
-        print(f"✅ Bot @{app.me.username} is running!")
-        await idle()  # Pyrogram ka idle use karein, yeh better hai
-    except Exception as e:
-        print(f"\n❌ STARTUP ERROR: {e}")
-    finally:
-        try:
-            await app.stop()
-        except:
-            pass
-
-if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-    except KeyboardInterrupt:
-        pass
+    # app.run() automatically manages the event loop
+    app.run()
