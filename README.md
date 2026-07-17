@@ -17,8 +17,7 @@
 <br>
 
 <div align="center">
-  <img src="https://i.ibb.co/pG9fq62/x.jpg" alt="Preview 1" width="45%">
-  <img src="https://i.ibb.co/b5g28nD1/x.jpg" alt="Preview 2" width="45%">
+  <img src="https://i.ibb.co/b5g28nD1/x.jpg" alt="Project Preview" width="800">
 </div>
 
 </div>
@@ -106,5 +105,3 @@ Built with precision by **MAGMA**.
 Connected Ecosystem: Snapbot
 ## 📜 License
 This project is licensed under the MIT License.
-```
-
