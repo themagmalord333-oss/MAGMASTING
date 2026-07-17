@@ -14,14 +14,21 @@
 [![Flask](https://img.shields.io/badge/Flask-KeepAlive-lightgrey.svg?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
----
+<br>
+
+<div align="center">
+  <img src="https://i.ibb.co/pG9fq62/x.jpg" alt="Preview 1" width="45%">
+  <img src="https://i.ibb.co/b5g28nD1/x.jpg" alt="Preview 2" width="45%">
+</div>
 
 </div>
 
-## 🔗 The Magma Ecosystem
-This project is an essential part of the **Magma Ecosystem**. While this tool handles secure **Session Generation**, it is designed to seamlessly work with [Magmasnapbot](https://github.com/themagmalord333-oss/Magmasnapbot). 
+---
 
-> **Workflow:** Use this tool to generate your secure Pyrogram String Session, then input that session into **Magmasnapbot** to unlock the full power of the Magma Userbot suite.
+## 🔗 The Magma Ecosystem
+This project is an essential part of the **Magma Ecosystem**. While this tool handles secure **Session Generation**, it is designed to seamlessly work with [Snapbot](https://github.com/themagmalord333-oss/Magmasnapbot). 
+
+> **Workflow:** Use this tool to generate your secure Pyrogram String Session, then input that session into **Snapbot** to unlock the full power of the Magma Userbot suite.
 
 ---
 
@@ -36,7 +43,7 @@ This project is an essential part of the **Magma Ecosystem**. While this tool ha
 * **Smart Force-Subscribe:** Advanced membership verification for multiple channels/groups.
 * **24/7 Keep-Alive:** Integrated Flask server for seamless cloud deployment (Render, Heroku, etc.).
 * **Safe Authentication:** Handles OTP and 2FA password verification securely.
-* **Magma Ready:** Perfectly compatible with [Magmasnapbot](https://github.com/themagmalord333-oss/Magmasnapbot).
+* **Magma Ready:** Perfectly compatible with [Snapbot](https://github.com/themagmalord333-oss/Magmasnapbot).
 
 ---
 
@@ -47,7 +54,7 @@ This project is an essential part of the **Magma Ecosystem**. While this tool ha
 
 ---
 
-## 📂 Folder Structure
+## 📁 Folder Structure
 ```text
 MAGMA-SESSION/
 ├── .env                  # Environment Variables
@@ -90,16 +97,14 @@ MAGMA-SESSION/
 | /start | Welcome and access check. |
 | /get | Initiates the session generation flow. |
 | /cancel | Aborts the current session generation process. |
-## 📸 Screenshots
-<div align="center">
-<img src="https://i.ibb.co/pG9fq62/x.jpg" alt="Project Preview" width="800">
-</div>
 ## 🛡 Security
  * **Memory Isolation:** Temporary session clients are explicitly disconnected and deleted after completion.
  * **State Expiry:** User session state automatically expires after 10 minutes of inactivity.
  * **No Disk Persistence:** All generation happens in RAM.
 ## ❤️ Credits
 Built with precision by **MAGMA**.
-Connected Ecosystem: Magmasnapbot
+Connected Ecosystem: Snapbot
 ## 📜 License
 This project is licensed under the MIT License.
+```
+
